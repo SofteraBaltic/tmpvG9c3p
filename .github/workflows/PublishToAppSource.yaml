@@ -1,0 +1,101 @@
+name: ' Publish To AppSource'
+
+on:
+  workflow_dispatch:
+    inputs:
+      appVersion:
+        description: App version to deliver to AppSource (current, prerelease, draft, latest or version number)
+        required: false
+        default: 'current'
+      projects:
+        description: Projects to publish to AppSource if the repository is multi-project. Default is *, which will publish all projects to AppSource.
+        required: false
+        default: '*'
+      GoLive:
+        description: Promote AppSource App to go live if it passes technical validation?
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  actions: read
+
+defaults:
+  run:
+    shell: pwsh
+
+env:
+  ALGoOrgSettings: ${{ vars.ALGoOrgSettings }}
+  ALGoRepoSettings: ${{ vars.ALGoRepoSettings }}
+
+jobs:
+  Initialization:
+    needs: [ ]
+    runs-on: [ ubuntu-latest ]
+    outputs:
+      telemetryScopeJson: ${{ steps.init.outputs.telemetryScopeJson }}
+    steps:
+      - name: Dump Workflow Information
+        uses: SofteraBaltic/tmpHOT5wY-Actions/DumpWorkflowInfo@main
+        with:
+          shell: pwsh
+
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Initialize the workflow
+        id: init
+        uses: SofteraBaltic/tmpHOT5wY-Actions/WorkflowInitialize@main
+        with:
+          shell: pwsh
+          eventId: "DO0103"
+
+  Deliver:
+    needs: [ Initialization ]
+    runs-on: [ ubuntu-latest ]
+    name: Deliver to AppSource
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Read settings
+        uses: SofteraBaltic/tmpHOT5wY-Actions/ReadSettings@main
+        with:
+          shell: pwsh
+
+      - name: Read secrets
+        id: ReadSecrets
+        uses: SofteraBaltic/tmpHOT5wY-Actions/ReadSecrets@main
+        with:
+          shell: pwsh
+          gitHubSecrets: ${{ toJson(secrets) }}
+          getSecrets: 'appSourceContext'
+
+      - name: Deliver
+        uses: SofteraBaltic/tmpHOT5wY-Actions/Deliver@main
+        env:
+          Secrets: '${{ steps.ReadSecrets.outputs.Secrets }}'
+        with:
+          shell: pwsh
+          parentTelemetryScopeJson: ${{ needs.Initialization.outputs.telemetryScopeJson }}
+          type: 'Release'
+          projects: ${{ github.event.inputs.projects }}
+          deliveryTarget: 'AppSource'
+          artifacts: ${{ github.event.inputs.appVersion }}
+          goLive: ${{ github.event.inputs.goLive }}
+
+  PostProcess:
+    needs: [ Initialization, Deliver ]
+    if: always()
+    runs-on: [ ubuntu-latest ]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Finalize the workflow
+        id: PostProcess
+        uses: SofteraBaltic/tmpHOT5wY-Actions/WorkflowPostProcess@main
+        with:
+          shell: pwsh
+          eventId: "DO0103"
+          telemetryScopeJson: ${{ needs.Initialization.outputs.telemetryScopeJson }}

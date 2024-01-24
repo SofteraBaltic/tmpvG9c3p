@@ -1,0 +1,9 @@
+{
+  "MicrosoftTelemetryConnectionString": "",
+  "runs-on": "ubuntu-latest",
+  "templateUrl": "https://github.com/SofteraBaltic/tmpHOT5wY-AppSource@main",
+  "type": "AppSource App",
+  "shell": "pwsh",
+  "doNotPublishApps": false,
+  "useCompilerFolder": false
+}
